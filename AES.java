@@ -1,6 +1,6 @@
 package aes;
 import java.util.*;
-
+// Create a class to AES 128-bit encryption
 public class AES {
     static String sbox [][] = {
         {"63","7c","77","7b","f2","6b","6f","c5","30","01","67","2b","fe","d7","ab","76"},
@@ -24,7 +24,7 @@ public class AES {
         {"52","09","6a","d5","30","36","a5","38","bf","40","a3","9e","81","f3","d7","fb"},
         {"7c","e3","39","82","9b","2f","ff","87","34","8e","43","44","c4","de","e9","cb"},
         {"54","7b","94","32","a6","c2","23","3d","ee","4c","95","0b","42","fa","c3","4e"},
-        {"08","2e","a1","66","28","9d","24","b2","76","5b","a2","49","6d","8b","d1","25"},
+        {"08","2e","a1","66","28","d9","24","b2","76","5b","a2","49","6d","8b","d1","25"},
         {"72","f8","f6","64","86","68","98","16","d4","a4","5c","cc","5d","65","b6","92"},
         {"6c","70","48","50","fd","ed","b9","da","5e","15","46","57","a7","8d","9d","84"},
         {"90","d8","ab","00","8c","bc","d3","0a","f7","e4","58","05","b8","b3","45","06"},
@@ -50,15 +50,40 @@ public class AES {
         {"13","09","14","11"},
         {"11","13","09","14"},
         };
+    // convertArrayToMatrix() is use to convert single dimensional array to 4x4 dimensional array
+    public static String[][] convertArrayToMatrix(String[] arr, boolean inv) {
+        String w[][] = new String[4][4];
+        int count = 0;
+        for(int i = 0; i < 4; i++) { 
+            for(int j = 0; j < 4; j++) {
+                if(inv)
+                    w[j][i] = arr[count];
+                else
+                    w[i][j] = arr[count];
+                count++;
+            }
+        }
+        return w;
+    }
+    // merge() method is used to merge two or more arrays into one
+    public static String[] merge(String[]... arrays) {
+	List<String> list = new ArrayList<>();
+	for (String[] array : arrays)
+		Collections.addAll(list, array);
+	return list.toArray(new String[0]);
+    }
+    // Xor() method takes argument arrays and gives result by XORing them
     public static String[] Xor(String arr1[], String arr2[]) {
         String result[] = new String[arr1.length];
         for(int i = 0; i < arr1.length; i++) {
             int x = Integer.parseInt(arr1[i],16);
             int y = Integer.parseInt(arr2[i],16);
+            //X-ORing the two values by ^ operator
             result[i] = Integer.toHexString(x ^ y);
         }
         return result;
     }
+    // subByte() performs AES byte substitution from sbox and inverse sbox(invsbox) in encryption and decryption respectively
     public static String[] subByte(String arr[], boolean inv) {
         for(int i = 0; i < arr.length; i++) {
             if (arr[i].length() == 1)
@@ -73,6 +98,8 @@ public class AES {
         }
         return arr;
     }
+    // shiftRow() shifts row of array by their row_numer-1
+    // eg: 1st row not get changed 2nd row shifts left by one in encryption and shifts right by one in decryption
     public static String[] shiftRow(String arr[], boolean inv) {
         String w[][] = convertArrayToMatrix(arr, true);
         int count = 0;
@@ -90,6 +117,9 @@ public class AES {
         }
         return arr;
     }
+    //mixColumns() multiples row of galois matrix and column of input data and then XORs them
+    //The result multiplication and after XORing then became 1st value(0x0) of result matrix
+    //Note: inverse galois(invgalois) matrix used in time of decryption
     public static String[] mixColumn(String arr[], boolean inv) { 
         int mulresult [] = new int[4];
         String w[][] = convertArrayToMatrix(arr, false);
@@ -100,6 +130,8 @@ public class AES {
                     int t = Integer.parseInt(w[i][k],16);
                     int t2 = t;
                     if(inv) {
+                        //to get result of multiplication in 8bit digit we have to use rule
+                        //Rule established in the multiplication of the values as written in the book "Cryptography and Network Security"
                         if(invgalois[j][k] == "09") {
                             t = multiTwo(t);
                             t = multiTwo(t);
@@ -150,6 +182,10 @@ public class AES {
         }
         return arr;
     }
+    // multiTwo() performs multiplication with 2 
+    /* When any number(binary) multiplies with 2 in binary it can be implemented as a 
+    1-bit left shift followed by a conditional bitwise XOR with 0001 1011 (1b in Hex)
+    if the leftmost bit of the original value (before the shift) is 1 */ 
     public static int multiTwo(int num) {
         int result;
         String binary = Integer.toBinaryString(num);
@@ -160,10 +196,11 @@ public class AES {
         binary = binary.substring(1) + "0";
         result = Integer.parseInt(binary,2);
         if(flag == 0){
-            result = result ^ Integer.parseInt("1b",16);
+            result = result ^ Integer.parseInt("00011011", 2);
         }
         return result;
     }
+    //roundKey() generates round keys for all 10 rounds 
     public static String[] roundKey(String key[], int roundnum) {
         String roundconst[] = new String[] {"01","02","04","08","10","20","40","80","1b","36"}; 
         String w[][] = convertArrayToMatrix(key, false);
@@ -178,87 +215,156 @@ public class AES {
         key = merge(w[0],w[1],w[2],w[3]);
         return key;
     }
+    // encryption() performs AES 128-bit Encryption with 16-bit input and 16-bit key 
+    // Gives result of 16-bit encrypted data - Cipher Text
     public static String[] encryption(String[] hextext,String[][] keys) {
+        // Before Starting round initially we have to add roundkey 0 to input data 
         hextext = Xor(hextext,keys[0]);
+        // In AES 128-bit there are total 10 round of encryption 
+        // Is executed by performing 4 steps: subByte, shiftRow, mixColumn and addRoundKey
         for(int i = 0; i < 10 ; i++) {
             hextext = subByte(hextext, false);
             hextext = shiftRow(hextext, false);
+            // In last round there is no mixColumn only 3 step: subByte, shiftRow and addRoundKey
             if(i == 9) {
                 hextext = Xor(hextext,keys[i+1]);
                 continue;
             }
             hextext = mixColumn(hextext, false);
+            // addRoundKey is XOR of data and generated key of that round
             hextext = Xor(hextext,keys[i+1]);
         }
         return hextext;
     }
+    // Decryption() is inverse of encryption
     public static String[] decryption(String[] hexctext,String[][] keys) {
+        // In round 1 of decryption there is no mixColumn only 3 step: subByte, shiftRow and addRoundKey
+         // In decryption addRoundkey is performed by using keys in decreasing order
+        // In 1st round of decryption we will use roundkey 10
         hexctext = Xor(hexctext,keys[10]);
         hexctext = shiftRow(hexctext,true);
         hexctext = subByte(hexctext, true);
+        // Remaining rounds 2 - 10 is executed by performing 4 steps: subByte, shiftRow, mixColumn and addRoundKey
         for(int i = 1; i < 10 ; i++) {
             hexctext = Xor(hexctext,keys[10-i]);
             hexctext = mixColumn(hexctext, true);
             hexctext = shiftRow(hexctext,true);
             hexctext = subByte(hexctext, true);
         }
+        // After Completing 10 rounds we have to add roundkey 0 to data 
         hexctext = Xor(hexctext,keys[0]);
         return hexctext;
     }
-    public static String[][] convertArrayToMatrix(String[] arr, boolean inv) {
-        String w[][] = new String[4][4];
-        int count = 0;
-        for(int i = 0; i < 4; i++) { 
-            for(int j = 0; j < 4; j++) {
-                if(inv)
-                    w[j][i] = arr[count];
-                else
-                    w[i][j] = arr[count];
-                count++;
+    public static void main(String[] args) {
+        // Take input string and valid 16-bit key to encrypt from user
+        Scanner sc= new Scanner(System.in);      
+        System.out.print("Enter a string to Encrypt:: ");  
+        String text = sc.nextLine();    
+        System.out.print("Enter a 16-Bit Key for Encrypt:: ");  
+        String key = sc.nextLine(); 
+        while (key.length()!=16){
+            System.out.print("Enter a valid Key 16-Bit only: ");
+            key = sc.nextLine();
+        }
+        // If input string length is greater than 16 then we have to split it to as required as many 16-bits block 
+        // eg: if total size is 40 then we will divide string into 3 16-bit block where in last block remaining size will occupied by " "(space)
+        int size = text.length();
+        if(size > 16)
+            size = ((16 - (size % 16)) + text.length()) / 16;
+        else 
+            size = 1;
+        int j = 0;
+        // This variable contains array where each string is exact 16-bit length
+        String textd[] = new String[size];
+        // Assigning divided string to array variable
+        if(text.length() > 16){
+            for(int i = 0; i < size; i++){
+                if(i == size-1)
+                {
+                    textd[i] = text.substring(j);
+                    int temp = textd[i].length();
+                    while(temp <= 16) {
+                        textd[i] = textd[i].concat(" ");
+                        temp++;
+                    }
+                    break;
+                }
+                textd[i] = text.substring(j,j+16);
+                j= j+16;
             }
         }
-        return w;
-    }
-    public static String[] merge(String[]... arrays) {
-	List<String> list = new ArrayList<>();
-	for (String[] array : arrays)
-		Collections.addAll(list, array);
-	return list.toArray(new String[0]);
-    }
-    public static void main(String[] args) {
-        String text = "Two One Nine Two";
-        String key = "Thats my Kung Fu";
-        String hextext[] = new String[16];
+        else {
+            textd[0] = text.substring(j);
+            int temp = textd[0].length();
+            while(temp <= 16) {
+                textd[0] = textd[0].concat(" ");
+                temp++;
+            }
+        }
+        System.out.println("16-bit blocks of given string:: " + Arrays.toString(textd));
+        // These arrays are used to store hexadeimal value of string which will use to calculate cipher text
+        String hextext[][] = new String[size][16];
+        String hexctext[][] = new String[size][16];
+        String invtext[][] = new String[size][16];
+        String roundkeys[][] = new String[11][16];
         String hexkey[] = new String[16];
-        String hexctext[] = new String[16];
-        String invtext[] = new String[16];
-        String roundkeys[][] = new String[11][16]; 
         String ctext = "", ptext = "";
-        for(int i = 0; i < key.toCharArray().length; i++)
-        {
-            hextext[i] = Integer.toHexString(text.toCharArray()[i]);
+        int flag = 0;
+        // Converting String key of 16-bit to Hexadeciaml array 
+        for(int i = 0; i < key.toCharArray().length; i++){
             hexkey[i] = Integer.toHexString(key.toCharArray()[i]);
         }
+        // Generating keys for all rounds 1 to 10 (roundKeys)
         roundkeys[0] = hexkey;
         for(int i = 0; i < 10; i++) {
             hexkey = roundKey(hexkey, i);
             roundkeys[i+1] = hexkey;
         }
-        hexctext = encryption(hextext,roundkeys);
-        
-        for(int i = 0; i < hexctext.length; i++){
-            char temp = (char) Integer.parseInt(hexctext[i],16);
-            ctext = ctext + temp;
+        // Performing Encryption and Decryption
+        // Asking User if they want to perform Decryption or not
+        System.out.print("Do You Want to Decrypt Text (Yes/No):: ");   
+        String dec = sc.nextLine(); 
+        while (dec.isEmpty()){
+            System.out.print("Please Enter a valid value: Do You Want to Decrypt Text (Yes/No)::");
+            dec = sc.nextLine();
         }
-        System.out.println("Hexadecimal Result of AES 128-bit Encryption::  " + Arrays.toString(hexctext));
+        if(dec.equalsIgnoreCase("Yes") || dec.equalsIgnoreCase("Y")) {
+            //Set flag to one if they want
+            flag = 1;
+        }
+        else if(dec.equalsIgnoreCase("No") || dec.equalsIgnoreCase("N")) { }
+        else{
+            System.out.print("Please Enter a valid value: ");
+            dec = sc.next();
+        }
+        for(int k = 0; k < size; k++){
+            for(int i = 0; i < 16; i++){
+                hextext[k][i] = Integer.toHexString(textd[k].toCharArray()[i]);
+            }
+            hexctext[k] = encryption(hextext[k],roundkeys);
+            if(flag == 1){
+                invtext[k] = decryption(hexctext[k],roundkeys);
+            }
+        }
+        // Converting Hexadecimal results of Encryption and Decryption to String 
+        for(int k = 0; k < size; k++){
+            for(int i = 0; i < hexctext[k].length; i++){
+                char temp = (char) Integer.parseInt(hexctext[k][i],16);
+                ctext = ctext + temp;
+            }
+            if(flag == 1) {
+                for(int i = 0; i < invtext[k].length; i++) {
+                    char temp = (char) Integer.parseInt(invtext[k][i],16);
+                    ptext = ptext + temp;
+                }
+            }
+        }
+        // Printing the Results of Encryption and Decryption
+        System.out.println("Hexadecimal Result of AES 128-bit Encryption::  " + Arrays.deepToString(hexctext));
         System.out.println("String Result of AES 128-bit Encryption::  " + ctext);
-        
-        invtext = decryption(hexctext,roundkeys);
-        for(int i = 0; i < invtext.length; i++) {
-            char temp = (char) Integer.parseInt(invtext[i],16);
-            ptext = ptext + temp;
+        if(flag == 1) {
+            System.out.println("Hexadecimal Result of AES 128-bit Decryption::  " + Arrays.deepToString(invtext));
+            System.out.println("String Result of AES 128-bit Decryption::  " + ptext);
         }
-        System.out.println("Hexadecimal Result of AES 128-bit Decryption::  " + Arrays.toString(invtext));
-        System.out.println("String Result of AES 128-bit Decryption::  " + ptext);
     }
 }
